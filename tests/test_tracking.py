@@ -91,10 +91,7 @@ class WandBTrackingTest(TempDirTestCase, MockingTestCase):
         If parsing through multiple calls to .log, pass in a `key_occurrence`
         """
         res = re.findall(rf"(?<={key} )[^\s]+", log)[key_occurrence]
-        if '"' in res:
-            return re.findall(r'"([^"]*)"', res)[0]
-        else:
-            return res
+        return re.findall(r'"([^"]*)"', res)[0] if '"' in res else res
 
     def test_init_trackers(self):
         project_name = "test_project_with_config"
@@ -156,15 +153,12 @@ class CometMLTest(unittest.TestCase):
         "Extracts `key` from Comet `log`"
         for log in log_list:
             j = json.loads(log)["payload"]
-            if is_param and "param" in j.keys():
-                if j["param"]["paramName"] == key:
-                    return j["param"]["paramValue"]
-            if "log_other" in j.keys():
-                if j["log_other"]["key"] == key:
-                    return j["log_other"]["val"]
-            if "metric" in j.keys():
-                if j["metric"]["metricName"] == key:
-                    return j["metric"]["metricValue"]
+            if is_param and "param" in j.keys() and j["param"]["paramName"] == key:
+                return j["param"]["paramValue"]
+            if "log_other" in j.keys() and j["log_other"]["key"] == key:
+                return j["log_other"]["val"]
+            if "metric" in j.keys() and j["metric"]["metricName"] == key:
+                return j["metric"]["metricValue"]
 
     def test_init_trackers(self):
         with tempfile.TemporaryDirectory() as d:

@@ -46,7 +46,7 @@ def dummy_dataloaders(a=2, b=3, batch_size=16, n_train_batches: int = 10, n_vali
 def train(num_epochs, model, dataloader, optimizer, accelerator, scheduler=None):
     "Trains for `num_epochs`"
     rands = []
-    for epoch in range(num_epochs):
+    for _ in range(num_epochs):
         # Train quickly
         model.train()
         for batch in dataloader:

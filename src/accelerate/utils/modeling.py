@@ -145,12 +145,9 @@ def named_module_tensors(module: nn.Module, include_buffers: bool = True, recurs
         recurse (`bool`, *optional`, defaults to `False`):
             Whether or not to go look in every submodule or just return the direct parameters and buffers.
     """
-    for named_parameter in module.named_parameters(recurse=recurse):
-        yield named_parameter
-
+    yield from module.named_parameters(recurse=recurse)
     if include_buffers:
-        for named_buffer in module.named_buffers(recurse=recurse):
-            yield named_buffer
+        yield from module.named_buffers(recurse=recurse)
 
 
 def find_tied_parameters(model: nn.Module, **kwargs):
@@ -184,12 +181,12 @@ def find_tied_parameters(model: nn.Module, **kwargs):
         Dict[str, str]: A dictionary mapping tied parameter names to the name of the parameter they are tied to.
     """
     # Initialize result and named_parameters before recursing.
-    named_parameters = kwargs.get("named_parameters", None)
+    named_parameters = kwargs.get("named_parameters")
     prefix = kwargs.get("prefix", "")
     result = kwargs.get("result", {})
 
     if named_parameters is None:
-        named_parameters = {n: p for n, p in model.named_parameters()}
+        named_parameters = dict(model.named_parameters())
     else:
         # A tied parameter will not be in the full `named_parameters` seen above but will be in the `named_parameters`
         # of the submodule it belongs to. So while recursing we track the names that are not in the initial
@@ -256,10 +253,13 @@ def get_max_layer_size(
     max_size = 0
     layer_names = []
     modules_to_treat = modules.copy()
-    while len(modules_to_treat) > 0:
+    while modules_to_treat:
         module_name, module = modules_to_treat.pop(0)
         modules_children = list(module.named_children()) if isinstance(module, torch.nn.Module) else []
-        if len(modules_children) == 0 or module.__class__.__name__ in no_split_module_classes:
+        if (
+            not modules_children
+            or module.__class__.__name__ in no_split_module_classes
+        ):
             # No splitting this one so we compare to the max_size
             size = module_sizes[module_name]
             if size > max_size:
@@ -300,7 +300,7 @@ def clean_device_map(device_map: Dict[str, Union[int, str, torch.device]], modul
     Cleans a device_map by grouping all submodules that go on the same device together.
     """
     # Get the value of the current module and if there is only one split across several keys, regroup it.
-    prefix = "" if module_name == "" else f"{module_name}."
+    prefix = f"{module_name}." if module_name else ""
     values = [v for k, v in device_map.items() if k.startswith(prefix)]
     if len(set(values)) == 1 and len(values) > 1:
         for k in [k for k in device_map if k.startswith(prefix)]:
@@ -308,9 +308,14 @@ def clean_device_map(device_map: Dict[str, Union[int, str, torch.device]], modul
         device_map[module_name] = values[0]
 
     # Recurse over the children
-    children_modules = [k for k in device_map.keys() if k.startswith(module_name) and len(k) > len(module_name)]
-    idx = len(module_name.split(".")) + 1 if len(module_name) > 0 else 1
-    children_modules = set(".".join(k.split(".")[:idx]) for k in children_modules)
+    children_modules = [
+        k
+        for k in device_map
+        if k.startswith(module_name) and len(k) > len(module_name)
+    ]
+
+    idx = len(module_name.split(".")) + 1 if module_name != "" else 1
+    children_modules = {".".join(k.split(".")[:idx]) for k in children_modules}
     for child in children_modules:
         clean_device_map(device_map, module_name=child)
 
@@ -394,16 +399,26 @@ def get_balanced_memory(
 
             if set(no_split_children.keys()) == set(no_split_module_classes):
                 break
-        buffer = max(no_split_children.values()) if len(no_split_children) > 0 else 0
+        buffer = max(no_split_children.values()) if no_split_children else 0
     else:
         buffer = 0
 
     # Compute mean of final modules. In the first dict of module sizes, leaves are the parameters
-    leaves = [n for n in module_sizes if len([p for p in module_sizes if p.startswith(n) and len(p) > len(n)]) == 0]
+    leaves = [
+        n
+        for n in module_sizes
+        if not [p for p in module_sizes if p.startswith(n) and len(p) > len(n)]
+    ]
+
     module_sizes = {n: v for n, v in module_sizes.items() if n not in leaves}
     # Once removed, leaves are the final modules.
-    leaves = [n for n in module_sizes if len([p for p in module_sizes if p.startswith(n) and len(p) > len(n)]) == 0]
-    mean_leaves = int(sum([module_sizes[n] for n in leaves]) / len(leaves))
+    leaves = [
+        n
+        for n in module_sizes
+        if not [p for p in module_sizes if p.startswith(n) and len(p) > len(n)]
+    ]
+
+    mean_leaves = int(sum(module_sizes[n] for n in leaves) / len(leaves))
     buffer = int(1.25 * max(buffer, mean_leaves))
     per_gpu += buffer
 
@@ -413,7 +428,12 @@ def get_balanced_memory(
         max_memory[i] = min(0 if low_zero and i == 0 else per_gpu, max_memory[i])
 
     if low_zero:
-        min_zero = max(0, module_sizes[""] - sum([max_memory[i] for i in range(1, num_devices)]))
+        min_zero = max(
+            0,
+            module_sizes[""]
+            - sum(max_memory[i] for i in range(1, num_devices)),
+        )
+
         max_memory[0] = min(min_zero, max_memory[0])
 
     return max_memory
@@ -465,7 +485,7 @@ def infer_auto_device_map(
         devices.append("disk")
 
     # Devices that need to keep space for a potential offloaded layer.
-    main_devices = [gpus[0], "cpu"] if len(gpus) > 0 else ["cpu"]
+    main_devices = [gpus[0], "cpu"] if gpus else ["cpu"]
 
     module_sizes = compute_module_sizes(model, dtype=dtype)
     tied_parameters = find_tied_parameters(model)
@@ -484,7 +504,7 @@ def infer_auto_device_map(
         name, module = modules_to_treat.pop(0)
         # Max size in the remaining layers may have changed since we took one, so we maybe update it.
         max_layer_names = [n for n in max_layer_names if not n.startswith(name)]
-        if len(max_layer_names) == 0:
+        if not max_layer_names:
             max_layer_size, max_layer_names = get_max_layer_size(
                 [(n, m) for n, m in modules_to_treat if isinstance(m, torch.nn.Module)],
                 module_sizes,
@@ -505,7 +525,10 @@ def infer_auto_device_map(
         if current_max_size is not None and current_memory_used + module_size > current_max_size:
             # Split or not split?
             modules_children = list(module.named_children())
-            if len(modules_children) == 0 or module.__class__.__name__ in no_split_module_classes:
+            if (
+                not modules_children
+                or module.__class__.__name__ in no_split_module_classes
+            ):
                 # -> no split, we go to the next device
                 current_device += 1
                 modules_to_treat = [(name, module)] + modules_to_treat
@@ -521,7 +544,6 @@ def infer_auto_device_map(
                     no_split_module_classes,
                 )
 
-        # Case 2, it fits! We're not entirely out of the wood though, because we may have some tied parameters.
         elif tied_param is not None:
             # Determine the sized occupied by this module + the module containing the tied parameter
             tied_module_size = module_size
@@ -531,7 +553,11 @@ def infer_auto_device_map(
             if current_max_size is not None and current_memory_used + tied_module_size > current_max_size:
                 # Split or not split?
                 tied_module_children = list(tied_module.named_children())
-                if len(tied_module_children) == 0 or tied_module.__class__.__name__ in no_split_module_classes:
+                if (
+                    not tied_module_children
+                    or tied_module.__class__.__name__
+                    in no_split_module_classes
+                ):
                     # If the tied module is not split, we go to the next device
                     current_device += 1
                     modules_to_treat = [(name, module)] + modules_to_treat
@@ -574,7 +600,7 @@ def check_device_map(model: nn.Module, device_map: Dict[str, Union[int, str, tor
         device_map (`Dict[str, Union[int, str, torch.device]]`): The device map to check.
     """
     all_model_tensors = [name for name, _ in model.state_dict().items()]
-    for module_name in device_map.keys():
+    for module_name in device_map:
         all_model_tensors = [name for name in all_model_tensors if not name.startswith(module_name)]
     if len(all_model_tensors) > 0:
         non_covered_params = ", ".join(all_model_tensors)
@@ -641,7 +667,7 @@ def load_checkpoint_in_model(
             checkpoint_files = [checkpoint]
     elif os.path.isdir(checkpoint):
         potential_index = [f for f in os.listdir(checkpoint) if f.endswith(".index.json")]
-        if len(potential_index) == 0:
+        if not potential_index:
             raise ValueError(f"{checkpoint} is not a folder containing a `.index.json` file.")
         elif len(potential_index) == 1:
             index_filename = os.path.join(checkpoint, potential_index[0])

@@ -126,7 +126,7 @@ def training_function(config, args):
     # to train on. If a CUDA OOM error occurs, it will retry this loop cutting the batch size in
     # half each time. From this, we can calculate the number of gradient accumulation steps needed
     # and modify the Accelerator object as a result
-    @find_executable_batch_size(starting_batch_size=int(observed_batch_size))
+    @find_executable_batch_size(starting_batch_size=observed_batch_size)
     def inner_training_loop(batch_size):
         # Since we need to modify the outside accelerator object, we need to bring it
         # to the local scope

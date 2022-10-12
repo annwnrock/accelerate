@@ -1,5 +1,5 @@
 import json
-from pathlib import Path 
+from pathlib import Path
 import subprocess
 
 failed = []
@@ -24,11 +24,10 @@ for log in Path().glob("*.log"):
                         passed.append([test, duration])
     group_info.append([str(log), section_num_failed])
 
-if len(failed) > 0:
-    result = "## Failed Tests:\n"
+if failed:
     failed_table = '| Test Location | Test Class | Test Name |\n|---|---|---|\n| '
     for test in failed:
         failed_table += ' | '.join(test[0].split("::"))
     failed_table += " |"
-    result += failed_table
+    result = "## Failed Tests:\n" + failed_table
     print(result)

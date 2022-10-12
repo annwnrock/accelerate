@@ -301,26 +301,25 @@ class FSDPIntegrationTest(TempDirTestCase):
 
             if "multi_gpu" in spec:
                 continue
-            else:
-                cmd_config.extend(["--use_fsdp"])
-                for i, strategy in enumerate(FSDP_SHARDING_STRATEGY):
-                    if strategy.lower() in spec:
-                        cmd_config.append(f"--fsdp_sharding_strategy={i+1}")
-                        break
+            cmd_config.extend(["--use_fsdp"])
+            for i, strategy in enumerate(FSDP_SHARDING_STRATEGY):
+                if strategy.lower() in spec:
+                    cmd_config.append(f"--fsdp_sharding_strategy={i+1}")
+                    break
 
-                if "cpu_offload" in spec:
-                    cmd_config.append("--fsdp_offload_params=True")
+            if "cpu_offload" in spec:
+                cmd_config.append("--fsdp_offload_params=True")
 
-                for policy in FSDP_AUTO_WRAP_POLICY:
-                    if policy.lower() in spec:
-                        cmd_config.append(f"--fsdp_auto_wrap_policy={policy}")
-                        break
+            for policy in FSDP_AUTO_WRAP_POLICY:
+                if policy.lower() in spec:
+                    cmd_config.append(f"--fsdp_auto_wrap_policy={policy}")
+                    break
 
-                if policy == "TRANSFORMER_BASED_WRAP":
-                    cmd_config.append("--fsdp_transformer_layer_cls_to_wrap=BertLayer")
-                elif policy == "SIZE_BASED_WRAP":
-                    cmd_config.append("--fsdp_min_num_params=2000")
+            if policy == "SIZE_BASED_WRAP":
+                cmd_config.append("--fsdp_min_num_params=2000")
 
+            elif policy == "TRANSFORMER_BASED_WRAP":
+                cmd_config.append("--fsdp_transformer_layer_cls_to_wrap=BertLayer")
             cmd_config.extend(
                 [
                     self.test_file_path,

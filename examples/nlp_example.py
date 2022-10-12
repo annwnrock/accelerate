@@ -154,7 +154,7 @@ def training_function(config, args):
                 optimizer.zero_grad()
 
         model.eval()
-        for step, batch in enumerate(eval_dataloader):
+        for batch in eval_dataloader:
             # We could avoid this line since we set the accelerator with `device_placement=True`.
             batch.to(accelerator.device)
             with torch.no_grad():

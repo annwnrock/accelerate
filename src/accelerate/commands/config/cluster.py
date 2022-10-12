@@ -85,13 +85,12 @@ def get_cluster_input():
 
     deepspeed_config = {}
     if distributed_type in [DistributedType.MULTI_GPU, DistributedType.NO]:
-        use_deepspeed = _ask_field(
+        if use_deepspeed := _ask_field(
             "Do you want to use DeepSpeed? [yes/NO]: ",
             _convert_yes_no_to_bool,
             default=False,
             error_message="Please enter yes or no.",
-        )
-        if use_deepspeed:
+        ):
             distributed_type = DistributedType.DEEPSPEED
             assert (
                 is_deepspeed_available()
@@ -133,13 +132,12 @@ def get_cluster_input():
                     lambda x: int(x),
                     default=1,
                 )
-                use_gradient_clipping = _ask_field(
+                if use_gradient_clipping := _ask_field(
                     "Do you want to use gradient clipping? [yes/NO]: ",
                     _convert_yes_no_to_bool,
                     default=False,
                     error_message="Please enter yes or no.",
-                )
-                if use_gradient_clipping:
+                ):
                     deepspeed_config["gradient_clipping"] = _ask_field(
                         "What is the gradient clipping value? [1.0]: ",
                         lambda x: float(x),
@@ -158,18 +156,20 @@ def get_cluster_input():
                 default=False,
                 error_message="Please enter yes or no.",
             )
-            if deepspeed_config["zero3_init_flag"]:
-                if not is_transformers_available():
-                    raise Exception(
-                        "When `zero3_init_flag` is set, it requires Transformers to be installed. "
-                        "Please run `pip3 install transformers`."
-                    )
+            if (
+                deepspeed_config["zero3_init_flag"]
+                and not is_transformers_available()
+            ):
+                raise Exception(
+                    "When `zero3_init_flag` is set, it requires Transformers to be installed. "
+                    "Please run `pip3 install transformers`."
+                )
 
             if num_machines > 1:
                 launcher_query = "Which Type of launcher do you want to use "
                 for i, launcher in enumerate(DEEPSPEED_MULTINODE_LAUNCHERS):
                     launcher_query += f"[{i}] {launcher}, "
-                launcher_query = launcher_query[:-2] + ")? [0]: "
+                launcher_query = f"{launcher_query[:-2]})? [0]: "
                 deepspeed_config["deepspeed_multinode_launcher"] = _ask_field(
                     launcher_query,
                     lambda x: DEEPSPEED_MULTINODE_LAUNCHERS[int(x)],
@@ -186,25 +186,23 @@ def get_cluster_input():
                         lambda x: str(x),
                     )
 
-                    is_exclusion_filter = _ask_field(
+                    if is_exclusion_filter := _ask_field(
                         "Do you want to specify exclusion filter string? [yes/NO]: ",
                         _convert_yes_no_to_bool,
                         default=False,
                         error_message="Please enter yes or no.",
-                    )
-                    if is_exclusion_filter:
+                    ):
                         deepspeed_config["deepspeed_exclusion_filter"] = _ask_field(
                             "DeepSpeed exclusion filter string: ",
                             lambda x: str(x),
                         )
 
-                    is_inclusion_filter = _ask_field(
+                    if is_inclusion_filter := _ask_field(
                         "Do you want to specify inclusion filter string? [yes/NO]: ",
                         _convert_yes_no_to_bool,
                         default=False,
                         error_message="Please enter yes or no.",
-                    )
-                    if is_inclusion_filter:
+                    ):
                         deepspeed_config["deepspeed_inclusion_filter"] = _ask_field(
                             "DeepSpeed inclusion filter string: ",
                             lambda x: str(x),
@@ -212,19 +210,18 @@ def get_cluster_input():
 
     fsdp_config = {}
     if distributed_type in [DistributedType.MULTI_GPU]:
-        use_fsdp = _ask_field(
+        if use_fsdp := _ask_field(
             "Do you want to use FullyShardedDataParallel? [yes/NO]: ",
             _convert_yes_no_to_bool,
             default=False,
             error_message="Please enter yes or no.",
-        )
-        if use_fsdp:
+        ):
             distributed_type = DistributedType.FSDP
         if distributed_type == DistributedType.FSDP:
             sharding_strategy_query = "What should be your sharding strategy ("
             for i, strategy in enumerate(FSDP_SHARDING_STRATEGY):
                 sharding_strategy_query += f"[{i+1}] {strategy}, "
-            sharding_strategy_query = sharding_strategy_query[:-2] + ")? [1]: "
+            sharding_strategy_query = f"{sharding_strategy_query[:-2]})? [1]: "
             fsdp_config["fsdp_sharding_strategy"] = _ask_field(
                 sharding_strategy_query,
                 lambda x: int(x),
@@ -239,7 +236,7 @@ def get_cluster_input():
             fsdp_wrap_query = "What should be your auto wrap policy ("
             for i, wrap_policy in enumerate(FSDP_AUTO_WRAP_POLICY):
                 fsdp_wrap_query += f"[{i}] {wrap_policy}, "
-            fsdp_wrap_query = fsdp_wrap_query[:-2] + ")? [0]: "
+            fsdp_wrap_query = f"{fsdp_wrap_query[:-2]})? [0]: "
             fsdp_config["fsdp_auto_wrap_policy"] = _ask_field(
                 fsdp_wrap_query,
                 lambda x: FSDP_AUTO_WRAP_POLICY[int(x)],
@@ -259,7 +256,7 @@ def get_cluster_input():
             fsdp_backward_prefetch_query = "What should be your FSDP's backward prefetch policy ("
             for i, backward_prefetch_policy in enumerate(FSDP_BACKWARD_PREFETCH):
                 fsdp_backward_prefetch_query += f"[{i}] {backward_prefetch_policy}, "
-            fsdp_backward_prefetch_query = fsdp_backward_prefetch_query[:-2] + ")? [0]: "
+            fsdp_backward_prefetch_query = f"{fsdp_backward_prefetch_query[:-2]})? [0]: "
             fsdp_config["fsdp_backward_prefetch_policy"] = _ask_field(
                 fsdp_backward_prefetch_query,
                 lambda x: FSDP_BACKWARD_PREFETCH[int(x)],
@@ -268,7 +265,7 @@ def get_cluster_input():
             fsdp_state_dict_type_query = "What should be your FSDP's state dict type ("
             for i, state_dict_type in enumerate(FSDP_STATE_DICT_TYPE):
                 fsdp_state_dict_type_query += f"[{i}] {state_dict_type}, "
-            fsdp_state_dict_type_query = fsdp_state_dict_type_query[:-2] + ")? [0]: "
+            fsdp_state_dict_type_query = f"{fsdp_state_dict_type_query[:-2]})? [0]: "
             fsdp_config["fsdp_state_dict_type"] = _ask_field(
                 fsdp_state_dict_type_query,
                 lambda x: FSDP_STATE_DICT_TYPE[int(x)],
@@ -285,10 +282,7 @@ def get_cluster_input():
 
     if distributed_type in [DistributedType.MULTI_CPU, DistributedType.MULTI_GPU, DistributedType.TPU]:
         machine_type = str(distributed_type).split(".")[1].replace("MULTI_", "")
-        if machine_type == "TPU":
-            machine_type += " cores"
-        else:
-            machine_type += "(s)"
+        machine_type += " cores" if machine_type == "TPU" else "(s)"
         num_processes = _ask_field(
             f"How many {machine_type} should be used for distributed training? [1]:",
             lambda x: int(x),
@@ -311,18 +305,19 @@ def get_cluster_input():
             default="all",
         )
 
-    if distributed_type != DistributedType.TPU:
-        if distributed_type == DistributedType.DEEPSPEED and use_deepspeed_config:
-            mixed_precision = "no"
-        else:
-            mixed_precision = _ask_field(
-                "Do you wish to use FP16 or BF16 (mixed precision)? [NO/fp16/bf16]: ",
-                lambda x: str(x).lower(),
-                default="no",
-            )
-    else:
+    if (
+        distributed_type != DistributedType.TPU
+        and distributed_type == DistributedType.DEEPSPEED
+        and use_deepspeed_config
+        or distributed_type == DistributedType.TPU
+    ):
         mixed_precision = "no"
-
+    else:
+        mixed_precision = _ask_field(
+            "Do you wish to use FP16 or BF16 (mixed precision)? [NO/fp16/bf16]: ",
+            lambda x: str(x).lower(),
+            default="no",
+        )
     downcast_bf16 = "no"
     if distributed_type == DistributedType.TPU and mixed_precision == "bf16":
         downcast_bf16 = _ask_field(

@@ -51,9 +51,7 @@ def find_indent(line):
     Returns the number of spaces that start a line indent.
     """
     search = re.search("^(\s*)(?:\S|$)", line)
-    if search is None:
-        return 0
-    return len(search.groups()[0])
+    return 0 if search is None else len(search.groups()[0])
 
 
 def parse_code_example(code_lines):
@@ -210,9 +208,8 @@ def format_text(text, max_len, prefix="", min_indent=None):
         `str`: The formatted text.
     """
     text = re.sub(r"\s+", " ", text)
-    if min_indent is not None:
-        if len(prefix) < min_indent:
-            prefix = " " * (min_indent - len(prefix)) + prefix
+    if min_indent is not None and len(prefix) < min_indent:
+        prefix = " " * (min_indent - len(prefix)) + prefix
 
     indent = " " * len(prefix)
     new_lines = []
@@ -344,7 +341,7 @@ def style_docstring(docstring, max_len):
                     new_lines.append(line)
                 else:
                     intro, description = split_line_on_first_colon(line)
-                    new_lines.append(intro + ":")
+                    new_lines.append(f"{intro}:")
                     if len(description) != 0:
                         if find_indent(lines[idx + 1]) > indent:
                             current_indent = find_indent(lines[idx + 1])
@@ -360,7 +357,7 @@ def style_docstring(docstring, max_len):
                 current_paragraph = [line.strip()]
                 current_indent = find_indent(line)
                 prefix = ""
-        elif current_paragraph is not None:
+        else:
             current_paragraph.append(line.lstrip())
 
     if current_paragraph is not None and len(current_paragraph) > 0:
@@ -527,7 +524,7 @@ def style_doc_files(*files, max_len=119, check_only=False):
                 raise
         else:
             warnings.warn(f"Ignoring {file} because it's not a py or an mdx file or a folder.")
-    if len(black_errors) > 0:
+    if black_errors:
         black_message = "\n\n".join(black_errors)
         raise ValueError(
             "Some code examples can't be interpreted by black, which means they aren't regular python:\n\n"

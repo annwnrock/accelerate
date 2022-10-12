@@ -33,7 +33,7 @@ def get_function_contents_by_name(lines: List[str], name: str):
         name (`str`):
             The name of the function to extract. Should be either `training_function` or `main`
     """
-    if name != "training_function" and name != "main":
+    if name not in ["training_function", "main"]:
         raise ValueError(f"Incorrect function name passed: {name}, choose either 'main' or 'training_function'")
     good_lines, found_start = [], False
     for line in lines:
@@ -131,11 +131,14 @@ def compare_against_test(base_filename: str, feature_filename: str, parser_only:
     new_full_example_parts = []
     passed_idxs = []  # We keep track of the idxs just in case it's a repeated statement
     for i, line in enumerate(base_file_func):
-        if i not in passed_idxs:
-            if (line not in full_file_func) and (line.lstrip() != _dl_line):
-                if "TESTING_MOCKED_DATALOADERS" not in line:
-                    new_full_example_parts.append(line)
-                    passed_idxs.append(i)
+        if (
+            i not in passed_idxs
+            and (line not in full_file_func)
+            and (line.lstrip() != _dl_line)
+            and "TESTING_MOCKED_DATALOADERS" not in line
+        ):
+            new_full_example_parts.append(line)
+            passed_idxs.append(i)
 
     # Finally, get the overall diff
     diff_from_example = [line for line in new_feature_code if line not in new_full_example_parts]

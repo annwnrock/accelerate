@@ -68,7 +68,6 @@ class GeneralTracker(object, metaclass=ABCMeta):
     @abstractproperty
     def name(self):
         "String representation of the python class name"
-        pass
 
     @abstractproperty
     def requires_logging_directory(self):
@@ -447,11 +446,15 @@ def filter_trackers(
                     if log_type not in loggers:
                         if log_type in get_available_trackers():
                             tracker_init = LOGGER_TYPE_TO_CLASS[str(log_type)]
-                            if getattr(tracker_init, "requires_logging_directory"):
-                                if logging_dir is None:
-                                    raise ValueError(
-                                        f"Logging with `{str(log_type)}` requires a `logging_dir` to be passed in."
-                                    )
+                            if (
+                                getattr(
+                                    tracker_init, "requires_logging_directory"
+                                )
+                                and logging_dir is None
+                            ):
+                                raise ValueError(
+                                    f"Logging with `{str(log_type)}` requires a `logging_dir` to be passed in."
+                                )
                             loggers.append(log_type)
                         else:
                             logger.debug(f"Tried adding logger {log_type}, but package is unavailable in the system.")

@@ -15,10 +15,8 @@
 from .imports import is_rich_available
 
 
-if is_rich_available():
-    from rich.traceback import install
-
-    install(show_locals=False)
-
-else:
+if not is_rich_available():
     raise ModuleNotFoundError("To use the rich extension, install rich with `pip install rich`")
+from rich.traceback import install
+
+install(show_locals=False)

@@ -81,9 +81,7 @@ def is_bf16_available(ignore_tpu=False):
     if is_tpu_available():
         return not ignore_tpu
     if is_torch_version(">=", "1.10"):
-        if torch.cuda.is_available():
-            return torch.cuda.is_bf16_supported()
-        return True
+        return torch.cuda.is_bf16_supported() if torch.cuda.is_available() else True
     return False
 
 

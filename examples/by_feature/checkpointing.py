@@ -206,10 +206,14 @@ def training_function(config, args):
         for step, batch in enumerate(train_dataloader):
             # New Code #
             # We need to skip steps until we reach the resumed step during the first epoch
-            if args.resume_from_checkpoint and epoch == starting_epoch:
-                if resume_step is not None and step < resume_step:
-                    overall_step += 1
-                    continue
+            if (
+                args.resume_from_checkpoint
+                and epoch == starting_epoch
+                and resume_step is not None
+                and step < resume_step
+            ):
+                overall_step += 1
+                continue
             # We could avoid this line since we set the accelerator with `device_placement=True`.
             batch.to(accelerator.device)
             outputs = model(**batch)
@@ -236,7 +240,7 @@ def training_function(config, args):
                     accelerator.save_state(output_dir)
 
         model.eval()
-        for step, batch in enumerate(eval_dataloader):
+        for batch in eval_dataloader:
             # We could avoid this line since we set the accelerator with `device_placement=True` (the default).
             batch.to(accelerator.device)
             with torch.no_grad():

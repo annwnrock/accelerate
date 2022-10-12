@@ -456,10 +456,7 @@ def reduce(tensor, reduction="mean"):
             torch.distributed.all_reduce(cloned_tensor, ReduceOp.SUM)
             return cloned_tensor
         else:
-            if reduction == "sum":
-                return cloned_tensor.sum()
-            else:
-                return cloned_tensor.mean()
+            return cloned_tensor.sum() if reduction == "sum" else cloned_tensor.mean()
 
     return recursively_apply(_reduce_across_processes, tensor, error_on_other_type=True, reduction=reduction)
 

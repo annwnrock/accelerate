@@ -85,7 +85,7 @@ _PYTORCH_DATALOADER_ADDITIONAL_KWARGS = {
 
 for v, additional_kwargs in _PYTORCH_DATALOADER_ADDITIONAL_KWARGS.items():
     if is_torch_version(">=", v):
-        _PYTORCH_DATALOADER_KWARGS.update(additional_kwargs)
+        _PYTORCH_DATALOADER_KWARGS |= additional_kwargs
 
 
 class BatchSamplerShard(BatchSampler):
@@ -438,9 +438,7 @@ class DataLoaderDispatcher(DataLoader):
                 else:
                     # num_processes batches of the main iterator are concatenated then dispatched and split.
                     # We add the batches one by one so we have the remainder available when drop_last=False.
-                    batches = []
-                    for _ in range(self.state.num_processes):
-                        batches.append(next(iterator))
+                    batches = [next(iterator) for _ in range(self.state.num_processes)]
                     batch = concatenate(batches, dim=0)
                 # In both cases, we need to get the structure of the batch that we will broadcast on other
                 # processes to initialize the tensors with the right shape.
@@ -453,23 +451,18 @@ class DataLoaderDispatcher(DataLoader):
         # This is inplace, so after this instruction, every process has the same `batch_info` as process 0.
         broadcast_object_list(batch_info)
         self._stop_iteration = batch_info[1]
-        if self._stop_iteration:
-            # If drop_last is False and split_batches is False, we may have a remainder to take care of.
-            if not self.split_batches and not self._drop_last:
-                if self.state.process_index == 0 and len(batches) > 0:
-                    batch = concatenate(batches, dim=0)
-                    batch_info = [get_data_structure(batch), False]
-                else:
-                    batch_info = [None, True]
-                broadcast_object_list(batch_info)
+        if self._stop_iteration and not self.split_batches and not self._drop_last:
+            if self.state.process_index == 0 and len(batches) > 0:
+                batch = concatenate(batches, dim=0)
+                batch_info = [get_data_structure(batch), False]
+            else:
+                batch_info = [None, True]
+            broadcast_object_list(batch_info)
         return batch, batch_info
 
     def __iter__(self):
         self.gradient_state._set_end_of_dataloader(False)
-        main_iterator = None
-        if self.state.process_index == 0:
-            # We only iterate through the DataLoader on process 0.
-            main_iterator = super().__iter__()
+        main_iterator = super().__iter__() if self.state.process_index == 0 else None
         stop_iteration = False
         self._stop_iteration = False
         first_batch = None
@@ -621,7 +614,12 @@ def prepare_data_loader(
 
     new_dataset = dataloader.dataset
     # Iterable dataset doesn't like batch_sampler, but data_loader creates a default one for it
-    new_batch_sampler = dataloader.batch_sampler if not isinstance(new_dataset, IterableDataset) else None
+    new_batch_sampler = (
+        None
+        if isinstance(new_dataset, IterableDataset)
+        else dataloader.batch_sampler
+    )
+
     sampler_is_batch_sampler = False
     generator = getattr(dataloader, "generator", None)
     # No change if no multiprocess

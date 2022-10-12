@@ -61,12 +61,12 @@ def wait_for_everyone():
 
     </Tip>
     """
-    if (
-        AcceleratorState().distributed_type == DistributedType.MULTI_GPU
-        or AcceleratorState().distributed_type == DistributedType.MULTI_CPU
-        or AcceleratorState().distributed_type == DistributedType.DEEPSPEED
-        or AcceleratorState().distributed_type == DistributedType.FSDP
-    ):
+    if AcceleratorState().distributed_type in [
+        DistributedType.MULTI_GPU,
+        DistributedType.MULTI_CPU,
+        DistributedType.DEEPSPEED,
+        DistributedType.FSDP,
+    ]:
         torch.distributed.barrier()
     elif AcceleratorState().distributed_type == DistributedType.TPU:
         xm.rendezvous("accelerate.utils.wait_for_everyone")
@@ -110,9 +110,7 @@ def get_pretty_name(obj):
         obj = getattr(obj, "__class__", obj)
     if hasattr(obj, "__qualname__"):
         return obj.__qualname__
-    if hasattr(obj, "__name__"):
-        return obj.__name__
-    return str(obj)
+    return obj.__name__ if hasattr(obj, "__name__") else str(obj)
 
 
 def write_basic_config(mixed_precision="no", save_location: str = default_json_config_file):
@@ -143,10 +141,7 @@ def write_basic_config(mixed_precision="no", save_location: str = default_json_c
         num_gpus = torch.cuda.device_count()
         config["num_processes"] = num_gpus
         config["use_cpu"] = False
-        if num_gpus > 1:
-            config["distributed_type"] = "MULTI_GPU"
-        else:
-            config["distributed_type"] = "NO"
+        config["distributed_type"] = "MULTI_GPU" if num_gpus > 1 else "NO"
     else:
         num_gpus = 0
         config["use_cpu"] = True
