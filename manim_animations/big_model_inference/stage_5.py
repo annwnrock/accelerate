@@ -21,8 +21,8 @@ class Stage5(Scene):
 
         meta_mem = Rectangle(height=0.25,width=0.25)
 
-        cpu_left_col_base = [mem.copy() for i in range(6)]
-        cpu_right_col_base = [mem.copy() for i in range(6)]
+        cpu_left_col_base = [mem.copy() for _ in range(6)]
+        cpu_right_col_base = [mem.copy() for _ in range(6)]
         cpu_left_col = VGroup(*cpu_left_col_base).arrange(UP, buff=0)
         cpu_right_col = VGroup(*cpu_right_col_base).arrange(UP, buff=0)
         cpu_rects = VGroup(cpu_left_col,cpu_right_col).arrange(RIGHT, buff=0)
@@ -31,14 +31,14 @@ class Stage5(Scene):
         cpu.move_to([-2.5,-.5,0])
         self.add(cpu)
 
-        gpu_base = [mem.copy() for i in range(4)]
+        gpu_base = [mem.copy() for _ in range(4)]
         gpu_rect = VGroup(*gpu_base).arrange(UP,buff=0)
         gpu_text = Text("GPU", font_size=24)
         gpu = Group(gpu_rect,gpu_text).arrange(DOWN, buff=0.5, aligned_edge=DOWN)
         gpu.move_to([-1,-1,0])
         self.add(gpu)
 
-        model_base = [mem.copy() for i in range(6)]
+        model_base = [mem.copy() for _ in range(6)]
         model_rect = VGroup(*model_base).arrange(RIGHT,buff=0)
 
         model_text = Text("Model", font_size=24)
@@ -48,7 +48,7 @@ class Stage5(Scene):
 
         model_arr = []
         model_cpu_arr = []
-        
+
         for i,rect in enumerate(model_base):
             target = fill.copy().set_fill(BLUE, opacity=0.8)
             target.move_to(rect)

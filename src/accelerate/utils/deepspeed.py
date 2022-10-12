@@ -58,13 +58,12 @@ class HfDeepSpeedConfig:
         # offload
         self._offload = False
         if self.is_zero2() or self.is_zero3():
-            offload_devices_valid = set(["cpu", "nvme"])
-            offload_devices = set(
-                [
-                    self.get_value("zero_optimization.offload_optimizer.device"),
-                    self.get_value("zero_optimization.offload_param.device"),
-                ]
-            )
+            offload_devices_valid = {"cpu", "nvme"}
+            offload_devices = {
+                self.get_value("zero_optimization.offload_optimizer.device"),
+                self.get_value("zero_optimization.offload_param.device"),
+            }
+
             if len(offload_devices & offload_devices_valid) > 0:
                 self._offload = True
 
@@ -86,9 +85,7 @@ class HfDeepSpeedConfig:
         Returns the set value or `default` if no value is set
         """
         config, ds_key = self.find_config_node(ds_key_long)
-        if config is None:
-            return default
-        return config.get(ds_key, default)
+        return default if config is None else config.get(ds_key, default)
 
     def del_config_sub_tree(self, ds_key_long, must_exist=False):
         """

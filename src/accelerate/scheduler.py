@@ -68,11 +68,7 @@ class AcceleratedScheduler:
             # num_processes steps per training step
             num_processes = AcceleratorState().num_processes
             for _ in range(num_processes):
-                # Special case when using OneCycle and `drop_last` was not used
-                if hasattr(self.scheduler, "total_steps") and self.scheduler._step_count <= self.scheduler.total_steps:
-                    self.scheduler.step(*args, **kwargs)
-                else:
-                    self.scheduler.step(*args, **kwargs)
+                self.scheduler.step(*args, **kwargs)
 
     # Passthroughs
     def get_last_lr(self):

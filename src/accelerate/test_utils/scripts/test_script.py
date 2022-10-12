@@ -60,9 +60,7 @@ def dl_preparation_check():
 
     dl = DataLoader(range(length), batch_size=8)
     dl = prepare_data_loader(dl, state.device, state.num_processes, state.process_index, put_on_device=True)
-    result = []
-    for batch in dl:
-        result.append(gather(batch))
+    result = [gather(batch) for batch in dl]
     result = torch.cat(result)
 
     print(state.process_index, result, type(dl))
@@ -77,9 +75,7 @@ def dl_preparation_check():
         put_on_device=True,
         split_batches=True,
     )
-    result = []
-    for batch in dl:
-        result.append(gather(batch))
+    result = [gather(batch) for batch in dl]
     result = torch.cat(result)
     assert torch.equal(result.cpu(), torch.arange(0, length).long()), "Wrong non-shuffled dataloader result."
 
@@ -88,9 +84,7 @@ def dl_preparation_check():
 
     dl = DataLoader(range(length), batch_size=8, shuffle=True)
     dl = prepare_data_loader(dl, state.device, state.num_processes, state.process_index, put_on_device=True)
-    result = []
-    for batch in dl:
-        result.append(gather(batch))
+    result = [gather(batch) for batch in dl]
     result = torch.cat(result).tolist()
     result.sort()
     assert result == list(range(length)), "Wrong shuffled dataloader result."
@@ -104,9 +98,7 @@ def dl_preparation_check():
         put_on_device=True,
         split_batches=True,
     )
-    result = []
-    for batch in dl:
-        result.append(gather(batch))
+    result = [gather(batch) for batch in dl]
     result = torch.cat(result).tolist()
     result.sort()
     assert result == list(range(length)), "Wrong shuffled dataloader result."
@@ -123,9 +115,7 @@ def central_dl_preparation_check():
     dl = prepare_data_loader(
         dl, state.device, state.num_processes, state.process_index, put_on_device=True, dispatch_batches=True
     )
-    result = []
-    for batch in dl:
-        result.append(gather(batch))
+    result = [gather(batch) for batch in dl]
     result = torch.cat(result)
     assert torch.equal(result.cpu(), torch.arange(0, length).long()), "Wrong non-shuffled dataloader result."
 
@@ -139,9 +129,7 @@ def central_dl_preparation_check():
         split_batches=True,
         dispatch_batches=True,
     )
-    result = []
-    for batch in dl:
-        result.append(gather(batch))
+    result = [gather(batch) for batch in dl]
     result = torch.cat(result)
     assert torch.equal(result.cpu(), torch.arange(0, length).long()), "Wrong non-shuffled dataloader result."
 
@@ -152,9 +140,7 @@ def central_dl_preparation_check():
     dl = prepare_data_loader(
         dl, state.device, state.num_processes, state.process_index, put_on_device=True, dispatch_batches=True
     )
-    result = []
-    for batch in dl:
-        result.append(gather(batch))
+    result = [gather(batch) for batch in dl]
     result = torch.cat(result).tolist()
     result.sort()
     assert result == list(range(length)), "Wrong shuffled dataloader result."
@@ -169,9 +155,7 @@ def central_dl_preparation_check():
         split_batches=True,
         dispatch_batches=True,
     )
-    result = []
-    for batch in dl:
-        result.append(gather(batch))
+    result = [gather(batch) for batch in dl]
     result = torch.cat(result).tolist()
     result.sort()
     assert result == list(range(length)), "Wrong shuffled dataloader result."
@@ -187,7 +171,7 @@ def mock_training(length, batch_size, generator):
     train_dl = DataLoader(train_set, batch_size=batch_size, shuffle=True, generator=generator)
     model = RegressionModel()
     optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
-    for epoch in range(3):
+    for _ in range(3):
         for batch in train_dl:
             model.zero_grad()
             output = model(batch["x"])
@@ -215,7 +199,7 @@ def training_check():
     train_dl, model, optimizer = accelerator.prepare(train_dl, model, optimizer)
     set_seed(42)
     generator.manual_seed(42)
-    for epoch in range(3):
+    for _ in range(3):
         for batch in train_dl:
             model.zero_grad()
             output = model(batch["x"])

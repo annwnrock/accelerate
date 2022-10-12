@@ -511,8 +511,17 @@ def deepspeed_launcher(args):
     main_process_ip = getattr(args, "main_process_ip")
     main_process_port = getattr(args, "main_process_port")
     if num_machines > 1 and args.deepspeed_multinode_launcher != DEEPSPEED_MULTINODE_LAUNCHERS[1]:
-        cmd = ["deepspeed", "--no_local_rank"]
-        cmd.extend(["--hostfile", str(args.deepspeed_hostfile), "--launcher", str(args.deepspeed_multinode_launcher)])
+        cmd = [
+            "deepspeed",
+            "--no_local_rank",
+            *[
+                "--hostfile",
+                str(args.deepspeed_hostfile),
+                "--launcher",
+                str(args.deepspeed_multinode_launcher),
+            ],
+        ]
+
         if args.deepspeed_exclusion_filter is not None:
             cmd.extend(
                 [
@@ -538,7 +547,7 @@ def deepspeed_launcher(args):
             cmd.append("--no_python")
         cmd.append(args.training_script)
         cmd.extend(args.training_script_args)
-    elif num_machines > 1 and args.deepspeed_multinode_launcher == DEEPSPEED_MULTINODE_LAUNCHERS[1]:
+    elif num_machines > 1:
         setattr(args, "nproc_per_node", str(num_processes // num_machines))
         setattr(args, "nnodes", str(num_machines))
         setattr(args, "node_rank", int(args.machine_rank))
@@ -654,7 +663,7 @@ def tpu_launcher(args):
 
 
 def _convert_nargs_to_dict(nargs: List[str]) -> Dict[str, str]:
-    if len(nargs) < 0:
+    if False:
         return {}
     # helper function to infer type for argsparser
 
@@ -662,9 +671,7 @@ def _convert_nargs_to_dict(nargs: List[str]) -> Dict[str, str]:
         try:
             s = float(s)
 
-            if s // 1 == s:
-                return int(s)
-            return s
+            return int(s) if s // 1 == s else s
         except ValueError:
             return s
 
@@ -690,7 +697,7 @@ def _convert_nargs_to_dict(nargs: List[str]) -> Dict[str, str]:
                 parser.add_argument(argument, action=action)
 
     return {
-        key: (literal_eval(value) if value == "True" or value == "False" else value)
+        key: literal_eval(value) if value in ["True", "False"] else value
         for key, value in parser.parse_args(nargs).__dict__.items()
     }
 
@@ -833,10 +840,7 @@ def launch_command(args):
             args.use_mps_device = defaults.distributed_type == DistributedType.MPS
         if not args.use_mps_device:
             if args.gpu_ids is None:
-                if defaults.gpu_ids is not None:
-                    args.gpu_ids = defaults.gpu_ids
-                else:
-                    args.gpu_ids = "all"
+                args.gpu_ids = defaults.gpu_ids if defaults.gpu_ids is not None else "all"
             if len(args.gpu_ids.split(",")) < 2 and args.multi_gpu and (args.gpu_ids != "all"):
                 args.multi_gpu = False
         if defaults.compute_environment == ComputeEnvironment.LOCAL_MACHINE:
@@ -849,7 +853,7 @@ def launch_command(args):
                     for k in defaults.fsdp_config:
                         arg_to_set = k
                         if "fsdp" not in arg_to_set:
-                            arg_to_set = "fsdp_" + arg_to_set
+                            arg_to_set = f"fsdp_{arg_to_set}"
                         setattr(args, arg_to_set, defaults.fsdp_config[k])
                     continue
 
@@ -860,10 +864,7 @@ def launch_command(args):
                 ):
                     setattr(args, name, attr)
         if not args.mixed_precision:
-            if args.fp16:
-                args.mixed_precision = "fp16"
-            else:
-                args.mixed_precision = defaults.mixed_precision
+            args.mixed_precision = "fp16" if args.fp16 else defaults.mixed_precision
     else:
         if args.num_processes is None:
             args.num_processes = torch.cuda.device_count() if args.multi_gpu else 1
@@ -889,8 +890,11 @@ def launch_command(args):
         )
 
     if any(warned):
-        message = "The following values were not passed to `accelerate launch` and had defaults used instead:\n"
-        message += "\n".join(warned)
+        message = (
+            "The following values were not passed to `accelerate launch` and had defaults used instead:\n"
+            + "\n".join(warned)
+        )
+
         message += (
             "\nTo avoid this warning pass in values for each of the problematic parameters or run `accelerate config`."
         )

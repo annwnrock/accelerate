@@ -20,8 +20,8 @@ class Stage1(Scene):
         mem = Rectangle(height=0.5,width=0.5)
         fill = Rectangle(height=0.46,width=0.46).set_stroke(width=0)
 
-        cpu_left_col_base = [mem.copy() for i in range(6)]
-        cpu_right_col_base = [mem.copy() for i in range(6)]
+        cpu_left_col_base = [mem.copy() for _ in range(6)]
+        cpu_right_col_base = [mem.copy() for _ in range(6)]
         cpu_left_col = VGroup(*cpu_left_col_base).arrange(UP, buff=0)
         cpu_right_col = VGroup(*cpu_right_col_base).arrange(UP, buff=0)
         cpu_rects = VGroup(cpu_left_col,cpu_right_col).arrange(RIGHT, buff=0)
@@ -30,22 +30,22 @@ class Stage1(Scene):
         cpu.move_to([-2.5,-.5,0])
         self.add(cpu)
 
-        gpu_base = [mem.copy() for i in range(1)]
+        gpu_base = [mem.copy() for _ in range(1)]
         gpu_rect = VGroup(*gpu_base).arrange(UP,buff=0)
         gpu_text = Text("GPU", font_size=24)
         gpu = Group(gpu_rect,gpu_text).arrange(DOWN, buff=0.5, aligned_edge=DOWN)
         gpu.align_to(cpu, DOWN)
         gpu.set_x(gpu.get_x() - 1)
-        
+
         self.add(gpu)
 
-        model_base = [mem.copy() for i in range(6)]
+        model_base = [mem.copy() for _ in range(6)]
         model_rect = VGroup(*model_base).arrange(RIGHT,buff=0)
 
         model_text = Text("Model", font_size=24)
         model = Group(model_rect,model_text).arrange(DOWN, buff=0.5, aligned_edge=DOWN)
         model.move_to([3, -1., 0])
-        
+
         self.play(
             Create(cpu_left_col, run_time=1),
             Create(cpu_right_col, run_time=1),
@@ -76,7 +76,7 @@ class Stage1(Scene):
         )
 
         self.add(model)
-        
+
 
         cpu_targs = []
         first_animations = []
@@ -88,7 +88,7 @@ class Stage1(Scene):
             cpu_target.generate_target()
             cpu_target.target.height = 0.46/4
             cpu_target.target.width = 0.46/3
-            
+
             if i == 0:
                 cpu_target.target.next_to(cpu_left_col_base[0].get_corner(DOWN+LEFT), buff=0.02, direction=UP)
                 cpu_target.target.set_x(cpu_target.target.get_x()+0.1)
@@ -103,6 +103,6 @@ class Stage1(Scene):
 
         self.play(*first_animations)
         self.play(*second_animations)
-                 
+
 
         self.wait()

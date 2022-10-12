@@ -19,8 +19,8 @@ class Stage2(Scene):
         mem = Rectangle(height=0.5,width=0.5)
         fill = Rectangle(height=0.46,width=0.46).set_stroke(width=0)
 
-        cpu_left_col_base = [mem.copy() for i in range(6)]
-        cpu_right_col_base = [mem.copy() for i in range(6)]
+        cpu_left_col_base = [mem.copy() for _ in range(6)]
+        cpu_right_col_base = [mem.copy() for _ in range(6)]
         cpu_left_col = VGroup(*cpu_left_col_base).arrange(UP, buff=0)
         cpu_right_col = VGroup(*cpu_right_col_base).arrange(UP, buff=0)
         cpu_rects = VGroup(cpu_left_col,cpu_right_col).arrange(RIGHT, buff=0)
@@ -29,21 +29,21 @@ class Stage2(Scene):
         cpu.move_to([-2.5,-.5,0])
         self.add(cpu)
 
-        gpu_base = [mem.copy() for i in range(4)]
+        gpu_base = [mem.copy() for _ in range(4)]
         gpu_rect = VGroup(*gpu_base).arrange(UP,buff=0)
         gpu_text = Text("GPU", font_size=24)
         gpu = Group(gpu_rect,gpu_text).arrange(DOWN, buff=0.5, aligned_edge=DOWN)
         gpu.move_to([-1,-1,0])
         self.add(gpu)
 
-        model_base = [mem.copy() for i in range(6)]
+        model_base = [mem.copy() for _ in range(6)]
         model_rect = VGroup(*model_base).arrange(RIGHT,buff=0)
 
         model_text = Text("Model", font_size=24)
         model = Group(model_rect,model_text).arrange(DOWN, buff=0.5, aligned_edge=DOWN)
         model.move_to([3, -1., 0])
         self.add(model)
-        
+
         cpu_targs = []
         for i,rect in enumerate(model_base):
             rect.set_stroke(YELLOW)
@@ -52,7 +52,7 @@ class Stage2(Scene):
             # self.add(target)
 
             cpu_target = Rectangle(height=0.46/4,width=0.46/3).set_stroke(width=0.).set_fill(YELLOW, opacity=0.7)
-            
+
             if i == 0:
                 cpu_target.next_to(cpu_left_col_base[0].get_corner(DOWN+LEFT), buff=0.02, direction=UP)
                 cpu_target.set_x(cpu_target.get_x()+0.1)
@@ -63,7 +63,7 @@ class Stage2(Scene):
             self.add(cpu_target)
             cpu_targs.append(cpu_target)
 
-              
+
 
         checkpoint_base = [mem.copy() for i in range(6)]
         checkpoint_rect = VGroup(*checkpoint_base).arrange(RIGHT,buff=0)
@@ -71,7 +71,7 @@ class Stage2(Scene):
         checkpoint_text = Text("Loaded Checkpoint", font_size=24)
         checkpoint = Group(checkpoint_rect,checkpoint_text).arrange(DOWN, aligned_edge=DOWN, buff=0.4)
         checkpoint.move_to([3, .5, 0])
-            
+
         key = Square(side_length=2.2)
         key.move_to([-5, 2, 0])
 
@@ -120,7 +120,7 @@ class Stage2(Scene):
             else:
                 cpu_target.target.move_to(cpu_right_col_base[i-5])
             second_animations.append(MoveToTarget(cpu_target, run_time=1.5))
-            
+
         self.play(*first_animations)
         self.play(*second_animations)
         self.wait()

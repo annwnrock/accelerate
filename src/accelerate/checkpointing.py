@@ -93,10 +93,8 @@ def save_accelerator_state(
         output_scaler_file = os.path.join(output_dir, SCALER_NAME)
         torch.save(state, output_scaler_file)
         logger.info(f"Gradient scaler state saved in {output_scaler_file}")
-    # Random number generator states
-    states = {}
     states_name = f"{RNG_STATE_NAME}_{process_index}.pkl"
-    states["random_state"] = random.getstate()
+    states = {"random_state": random.getstate()}
     states["numpy_random_seed"] = np.random.get_state()
     states["torch_manual_seed"] = torch.get_rng_state()
     states["torch_cuda_manual_seed"] = torch.cuda.get_rng_state_all()

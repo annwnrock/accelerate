@@ -31,12 +31,11 @@ def get_launch_prefix():
     torch.distributed.run`, etc
     """
     if is_torch_version(">=", "1.10.0"):
-        cmd = ["torchrun"]
+        return ["torchrun"]
     elif is_torch_version(">=", "1.9.0"):
-        cmd = [sys.executable, "-m", "torch.distributed.run"]
+        return [sys.executable, "-m", "torch.distributed.run"]
     else:
-        cmd = [sys.executable, "-m", "torch.distributed.launch", "--use_env"]
-    return cmd
+        return [sys.executable, "-m", "torch.distributed.launch", "--use_env"]
 
 
 def _filter_args(args):
@@ -47,7 +46,7 @@ def _filter_args(args):
     new_args, _ = distrib_args.parse_known_args()
 
     for key, value in vars(args).items():
-        if key in vars(new_args).keys():
+        if key in vars(new_args):
             setattr(new_args, key, value)
     return new_args
 
@@ -90,7 +89,10 @@ class PrepareForLaunch:
                 store=torch.distributed.FileStore(rdv_file, world_size),
                 world_size=world_size,
             )
-        elif self.distributed_type == DistributedType.MULTI_GPU or self.distributed_type == DistributedType.MULTI_CPU:
+        elif self.distributed_type in [
+            DistributedType.MULTI_GPU,
+            DistributedType.MULTI_CPU,
+        ]:
             # Prepare the environment for torch.distributed
             os.environ["LOCAL_RANK"] = str(index)
             os.environ["RANK"] = str(index)

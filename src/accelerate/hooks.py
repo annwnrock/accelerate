@@ -339,9 +339,9 @@ def attach_align_device_hook(
         offload and preload_module_classes is not None and module.__class__.__name__ in preload_module_classes
     )
 
-    if len(list(directs)) > 0 or full_offload:
+    if list(directs) or full_offload:
         if weights_map is not None:
-            prefix = f"{module_name}." if len(module_name) > 0 else ""
+            prefix = f"{module_name}." if module_name != "" else ""
             prefixed_weights_map = PrefixedDataset(weights_map, prefix)
         else:
             prefixed_weights_map = None
@@ -360,7 +360,7 @@ def attach_align_device_hook(
 
     # Recurse on all children of the module.
     for child_name, child in module.named_children():
-        child_name = f"{module_name}.{child_name}" if len(module_name) > 0 else child_name
+        child_name = f"{module_name}.{child_name}" if module_name != "" else child_name
         attach_align_device_hook(
             child,
             execution_device=execution_device,
@@ -442,9 +442,10 @@ def attach_align_device_hook_on_blocks(
         hook = AlignDevicesHook(
             execution_device=execution_device[module_name],
             offload_buffers=offload_buffers,
-            io_same_device=(module_name == ""),
+            io_same_device=not module_name,
             place_submodules=True,
         )
+
         add_hook_to_module(module, hook)
         attach_execution_device_hook(module, execution_device[module_name])
     elif module_name in execution_device:
@@ -458,17 +459,21 @@ def attach_align_device_hook_on_blocks(
             preload_module_classes=preload_module_classes,
         )
         if not hasattr(module, "_hf_hook"):
-            hook = AlignDevicesHook(execution_device=execution_device[module_name], io_same_device=(module_name == ""))
+            hook = AlignDevicesHook(
+                execution_device=execution_device[module_name],
+                io_same_device=not module_name,
+            )
+
             add_hook_to_module(module, hook)
         attach_execution_device_hook(
             module, execution_device[module_name], preload_module_classes=preload_module_classes
         )
-    elif module_name == "":
+    elif not module_name:
         hook = AlignDevicesHook(io_same_device=True)
         add_hook_to_module(module, hook)
 
     for child_name, child in module.named_children():
-        child_name = f"{module_name}.{child_name}" if len(module_name) > 0 else child_name
+        child_name = f"{module_name}.{child_name}" if module_name != "" else child_name
         attach_align_device_hook_on_blocks(
             child,
             execution_device=execution_device,

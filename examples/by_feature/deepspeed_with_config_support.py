@@ -226,16 +226,14 @@ def parse_args():
     )
     args = parser.parse_args()
 
-    # Sanity checks
     if args.dataset_name is None and args.train_file is None and args.validation_file is None:
         raise ValueError("Need either a dataset name or a training/validation file.")
-    else:
-        if args.train_file is not None:
-            extension = args.train_file.split(".")[-1]
-            assert extension in ["csv", "json", "txt"], "`train_file` should be a csv, json or txt file."
-        if args.validation_file is not None:
-            extension = args.validation_file.split(".")[-1]
-            assert extension in ["csv", "json", "txt"], "`validation_file` should be a csv, json or txt file."
+    if args.train_file is not None:
+        extension = args.train_file.split(".")[-1]
+        assert extension in ["csv", "json", "txt"], "`train_file` should be a csv, json or txt file."
+    if args.validation_file is not None:
+        extension = args.validation_file.split(".")[-1]
+        assert extension in ["csv", "json", "txt"], "`validation_file` should be a csv, json or txt file."
 
     if args.push_to_hub:
         assert args.output_dir is not None, "Need an `output_dir` to create a repo when `--push_to_hub` is passed."
@@ -251,9 +249,7 @@ def checkpoint_model(checkpoint_folder, ckpt_id, model, epoch, last_global_step,
     checkpoint_state_dict = {
         "epoch": epoch,
         "last_global_step": last_global_step,
-    }
-    # Add extra kwargs too
-    checkpoint_state_dict.update(kwargs)
+    } | kwargs
 
     success = model.save_checkpoint(checkpoint_folder, ckpt_id, checkpoint_state_dict)
     status_msg = f"checkpointing: checkpoint_folder={checkpoint_folder}, ckpt_id={ckpt_id}"
@@ -280,7 +276,7 @@ def load_training_checkpoint(model, load_dir, tag=None, **kwargs):
 def evaluate(args, model, eval_dataloader, accelerator, eval_dataset):
     model.eval()
     losses = []
-    for step, batch in enumerate(eval_dataloader):
+    for batch in eval_dataloader:
         with torch.no_grad():
             outputs = model(**batch)
 
@@ -420,9 +416,10 @@ def main():
     if args.model_name_or_path:
         model = AutoModelForCausalLM.from_pretrained(
             args.model_name_or_path,
-            from_tf=bool(".ckpt" in args.model_name_or_path),
+            from_tf=".ckpt" in args.model_name_or_path,
             config=config,
         )
+
     else:
         logger.info("Training new model from scratch")
         model = AutoModelForCausalLM.from_config(config)
@@ -516,14 +513,23 @@ def main():
     no_decay = ["bias", "LayerNorm.weight"]
     optimizer_grouped_parameters = [
         {
-            "params": [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
+            "params": [
+                p
+                for n, p in model.named_parameters()
+                if all(nd not in n for nd in no_decay)
+            ],
             "weight_decay": args.weight_decay,
         },
         {
-            "params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)],
+            "params": [
+                p
+                for n, p in model.named_parameters()
+                if any(nd in n for nd in no_decay)
+            ],
             "weight_decay": 0.0,
         },
     ]
+
     # New Code #
     # Creates Dummy Optimizer if `optimizer` was specified in the config file else creates Adam Optimizer
     optimizer_cls = (
@@ -632,10 +638,14 @@ def main():
             total_loss = 0
         for step, batch in enumerate(train_dataloader):
             # We need to skip steps until we reach the resumed step
-            if args.resume_from_checkpoint and epoch == starting_epoch:
-                if resume_step is not None and step < resume_step:
-                    completed_steps += 1
-                    continue
+            if (
+                args.resume_from_checkpoint
+                and epoch == starting_epoch
+                and resume_step is not None
+                and step < resume_step
+            ):
+                completed_steps += 1
+                continue
             outputs = model(**batch)
             loss = outputs.loss
             # We keep track of the loss at each epoch
@@ -650,12 +660,14 @@ def main():
                 progress_bar.update(1)
                 completed_steps += 1
 
-            if isinstance(checkpointing_steps, int):
-                if completed_steps % checkpointing_steps == 0:
-                    output_dir = f"step_{completed_steps }"
-                    if args.output_dir is not None:
-                        output_dir = os.path.join(args.output_dir, output_dir)
-                    accelerator.save_state(output_dir)
+            if (
+                isinstance(checkpointing_steps, int)
+                and completed_steps % checkpointing_steps == 0
+            ):
+                output_dir = f"step_{completed_steps }"
+                if args.output_dir is not None:
+                    output_dir = os.path.join(args.output_dir, output_dir)
+                accelerator.save_state(output_dir)
             if completed_steps >= args.max_train_steps:
                 break
 

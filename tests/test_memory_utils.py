@@ -64,7 +64,6 @@ class MemoryTest(unittest.TestCase):
         def mock_training_loop_function(batch_size):
             if batch_size > 0:
                 raise_fake_out_of_memory()
-            pass
 
         with self.assertRaises(RuntimeError) as cm:
             mock_training_loop_function()

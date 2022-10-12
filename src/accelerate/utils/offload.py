@@ -44,7 +44,7 @@ def offload_weight(weight, weight_name, offload_folder, index=None):
 
 def load_offloaded_weight(weight_file, weight_info):
     shape = tuple(weight_info["shape"])
-    if shape == ():
+    if not shape:
         # NumPy memory-mapped arrays can't have 0 dims so it was saved as 1d tensor
         shape = (1,)
 
@@ -178,5 +178,10 @@ def extract_submodules_state_dict(state_dict: Dict[str, torch.Tensor], submodule
     """
     result = {}
     for module_name in submodule_names:
-        result.update({key: param for key, param in state_dict.items() if key.startswith(module_name)})
+        result |= {
+            key: param
+            for key, param in state_dict.items()
+            if key.startswith(module_name)
+        }
+
     return result

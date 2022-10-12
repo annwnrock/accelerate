@@ -207,17 +207,19 @@ class Accelerator:
             deepspeed_plugin.set_mixed_precision(mixed_precision)
             deepspeed_plugin.set_deepspeed_weakref()
 
-        if os.environ.get("USE_FSDP", "false") == "true" or isinstance(fsdp_plugin, FullyShardedDataParallelPlugin):
-            if is_torch_version("<", "1.12.0"):
-                raise ValueError("FSDP requires PyTorch >= 1.12.0")
+        if (
+            os.environ.get("USE_FSDP", "false") == "true"
+            or isinstance(fsdp_plugin, FullyShardedDataParallelPlugin)
+        ) and is_torch_version("<", "1.12.0"):
+            raise ValueError("FSDP requires PyTorch >= 1.12.0")
 
         if fsdp_plugin is None:  # init from env variables
             fsdp_plugin = FullyShardedDataParallelPlugin() if os.environ.get("USE_FSDP", "false") == "true" else None
-        else:
-            if not isinstance(fsdp_plugin, FullyShardedDataParallelPlugin):
-                raise TypeError("`fsdp_plugin` must be a FullyShardedDataParallelPlugin object.")
+        elif isinstance(fsdp_plugin, FullyShardedDataParallelPlugin):
             os.environ["USE_FSDP"] = "true"  # use FSDP if plugin is provided
 
+        else:
+            raise TypeError("`fsdp_plugin` must be a FullyShardedDataParallelPlugin object.")
         # Kwargs handlers
         self.ddp_handler = None
         self.scaler_handler = None
@@ -258,11 +260,13 @@ class Accelerator:
         ):
             raise ValueError("Can only use `downcast_bf16` when using `mixed_precision='bf16'` and on a TPU")
 
-        if gradient_accumulation_steps > 1:
-            if self.state.distributed_type == DistributedType.TPU:
-                raise NotImplementedError(
-                    "Gradient accumulation on TPU is not supported. Pass in `gradient_accumulation_steps=1`"
-                )
+        if (
+            gradient_accumulation_steps > 1
+            and self.state.distributed_type == DistributedType.TPU
+        ):
+            raise NotImplementedError(
+                "Gradient accumulation on TPU is not supported. Pass in `gradient_accumulation_steps=1`"
+            )
 
         self.gradient_accumulation_steps = gradient_accumulation_steps
         self.device_placement = device_placement
@@ -532,11 +536,7 @@ class Accelerator:
         ```
         """
         self._do_sync()
-        if self.sync_gradients:
-            context = contextlib.nullcontext
-        else:
-            context = self.no_sync
-
+        context = contextlib.nullcontext if self.sync_gradients else self.no_sync
         with context(model):
             yield
 
@@ -555,12 +555,9 @@ class Accelerator:
             elif isinstance(obj, torch.nn.Module):
                 return self.prepare_model(obj, device_placement=device_placement)
             elif isinstance(obj, torch.optim.Optimizer):
-                optimizer = self.prepare_optimizer(obj, device_placement=device_placement)
-                return optimizer
-        # Second pass of preparation: LR scheduler (which need the full list of optimizers)
+                return self.prepare_optimizer(obj, device_placement=device_placement)
         elif isinstance(obj, torch.optim.lr_scheduler._LRScheduler):
-            scheduler = self.prepare_scheduler(obj)
-            return scheduler
+            return self.prepare_scheduler(obj)
         # Return the unprocessed object if previous criteria was not met
         return obj
 
@@ -769,7 +766,7 @@ class Accelerator:
             batch_sizes = [obj.batch_size for obj in args if hasattr(obj, "batch_size")]
             if self.split_batches:
                 batch_sizes = [batch_size // self.num_processes for batch_size in batch_sizes]
-            if len(batch_sizes) == 0:
+            if not batch_sizes:
                 raise ValueError(
                     "You must specify a training or evaluation dataloader in `accelerate.prepare()` when using DeepSpeed."
                 )
@@ -782,7 +779,7 @@ class Accelerator:
                 )
         else:
             batch_size_per_device = deepspeed_plugin.deepspeed_config["train_micro_batch_size_per_gpu"]
-            result = [obj for obj in args]
+            result = list(args)
 
         if self.gradient_accumulation_steps != deepspeed_plugin.deepspeed_config["gradient_accumulation_steps"]:
             logger.info(
@@ -839,42 +836,53 @@ class Accelerator:
                     "You cannot create a `DummyScheduler` without specifying a scheduler in the config file."
                 )
 
-        if optimizer is not None and scheduler is not None:
-            if isinstance(optimizer, (DummyOptim)) and not isinstance(scheduler, (DummyScheduler)):
-                raise ValueError(
-                    "You can only specify `accelerate.utils.DummyScheduler` in the code when using "
-                    "`accelerate.utils.DummyOptim`."
-                )
+        if (
+            optimizer is not None
+            and scheduler is not None
+            and isinstance(optimizer, (DummyOptim))
+            and not isinstance(scheduler, (DummyScheduler))
+        ):
+            raise ValueError(
+                "You can only specify `accelerate.utils.DummyScheduler` in the code when using "
+                "`accelerate.utils.DummyOptim`."
+            )
 
         if model is not None:
             if hasattr(model, "config") and hasattr(model.config, "hidden_size"):
                 hidden_size = model.config.hidden_size
-                config_kwargs.update(
-                    {
-                        "zero_optimization.reduce_bucket_size": hidden_size * hidden_size,
-                        "zero_optimization.stage3_prefetch_bucket_size": 0.9 * hidden_size * hidden_size,
-                        "zero_optimization.stage3_param_persistence_threshold": 10 * hidden_size,
-                    }
-                )
+                config_kwargs |= {
+                    "zero_optimization.reduce_bucket_size": hidden_size
+                    * hidden_size,
+                    "zero_optimization.stage3_prefetch_bucket_size": 0.9
+                    * hidden_size
+                    * hidden_size,
+                    "zero_optimization.stage3_param_persistence_threshold": 10
+                    * hidden_size,
+                }
+
 
             if isinstance(optimizer, (DummyOptim)):
-                config_kwargs.update(
-                    {"optimizer.params.lr": optimizer.lr, "optimizer.params.weight_decay": optimizer.weight_decay}
-                )
+                config_kwargs |= {
+                    "optimizer.params.lr": optimizer.lr,
+                    "optimizer.params.weight_decay": optimizer.weight_decay,
+                }
+
             if isinstance(scheduler, (DummyScheduler)):
-                config_kwargs.update(
-                    {
-                        "scheduler.params.warmup_min_lr": 0,
-                        "scheduler.params.warmup_max_lr": scheduler.optimizer.lr,
-                        "scheduler.params.warmup_num_steps": scheduler.warmup_num_steps,
-                    }
-                )
+                config_kwargs |= {
+                    "scheduler.params.warmup_min_lr": 0,
+                    "scheduler.params.warmup_max_lr": scheduler.optimizer.lr,
+                    "scheduler.params.warmup_num_steps": scheduler.warmup_num_steps,
+                }
+
                 if scheduler.total_num_steps is not None:
                     config_kwargs["scheduler.params.total_num_steps"] = (
-                        math.ceil(scheduler.total_num_steps / self.num_processes)
-                        if not self.split_batches
-                        else scheduler.total_num_steps
+                        scheduler.total_num_steps
+                        if self.split_batches
+                        else math.ceil(
+                            scheduler.total_num_steps / self.num_processes
+                        )
                     )
+
             deepspeed_plugin.deepspeed_config_process(must_match=False, **config_kwargs)
             self.deepspeed_config = deepspeed_plugin.deepspeed_config
             kwargs = dict(model=model, config_params=self.deepspeed_config)
@@ -883,9 +891,12 @@ class Accelerator:
                     kwargs["model_parameters"] = optimizer.params
                 else:
                     kwargs["optimizer"] = optimizer
-                    if scheduler is not None:
-                        if type(scheduler).__name__ in deepspeed.runtime.lr_schedules.VALID_LR_SCHEDULES:
-                            kwargs["lr_scheduler"] = scheduler
+                    if (
+                        scheduler is not None
+                        and type(scheduler).__name__
+                        in deepspeed.runtime.lr_schedules.VALID_LR_SCHEDULES
+                    ):
+                        kwargs["lr_scheduler"] = scheduler
 
             engine, optimizer, _, lr_scheduler = deepspeed.initialize(**kwargs)
             if optimizer is not None:
@@ -974,12 +985,15 @@ class Accelerator:
             scheduler (`torch.optim.lr_scheduler._LRScheduler`):
                 A vanilla PyTorch scheduler to prepare
         """
-        # We try to find the optimizer associated with `scheduler`, the default is the full list.
-        optimizer = self._optimizers
-        for opt in self._optimizers:
-            if getattr(scheduler, "optimizer", None) == opt.optimizer:
-                optimizer = opt
-                break
+        optimizer = next(
+            (
+                opt
+                for opt in self._optimizers
+                if getattr(scheduler, "optimizer", None) == opt.optimizer
+            ),
+            self._optimizers,
+        )
+
         scheduler = AcceleratedScheduler(
             scheduler,
             optimizer,
@@ -1050,9 +1064,9 @@ class Accelerator:
         """
         if self.distributed_type == DistributedType.FSDP:
             self.unscale_gradients()
-            parameters = [p for p in parameters]
+            parameters = list(parameters)
             for model in self._models:
-                if parameters == [p for p in model.parameters()]:
+                if parameters == list(model.parameters()):
                     model.clip_grad_norm_(max_norm, norm_type)
                     return
         elif self.distributed_type == DistributedType.DEEPSPEED:
@@ -1328,10 +1342,12 @@ class Accelerator:
         # Save the lr schedulers taking care of DeepSpeed nuances
         schedulers = []
         if self.distributed_type == DistributedType.DEEPSPEED:
-            for i, scheduler in enumerate(self._schedulers):
-                if isinstance(scheduler, DeepSpeedSchedulerWrapper):
-                    continue
-                schedulers.append(scheduler)
+            schedulers.extend(
+                scheduler
+                for scheduler in self._schedulers
+                if not isinstance(scheduler, DeepSpeedSchedulerWrapper)
+            )
+
         else:
             schedulers = self._schedulers
 

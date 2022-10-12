@@ -225,9 +225,13 @@ def training_function(config, args):
                 total_loss = 0
             for step, batch in enumerate(train_dataloader):
                 # We need to skip steps until we reach the resumed step
-                if args.resume_from_checkpoint and epoch == 0:
-                    if resume_step is not None and step < resume_step:
-                        pass
+                if (
+                    args.resume_from_checkpoint
+                    and epoch == 0
+                    and resume_step is not None
+                    and step < resume_step
+                ):
+                    pass
                 # We could avoid this line since we set the accelerator with `device_placement=True`.
                 batch.to(accelerator.device)
                 outputs = model(**batch)

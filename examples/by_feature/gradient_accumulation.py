@@ -155,7 +155,7 @@ def training_function(config, args):
     # Now we train the model
     for epoch in range(num_epochs):
         model.train()
-        for step, batch in enumerate(train_dataloader):
+        for batch in train_dataloader:
             # We could avoid this line since we set the accelerator with `device_placement=True`.
             batch.to(accelerator.device)
             # New code #
@@ -170,7 +170,7 @@ def training_function(config, args):
                 optimizer.zero_grad()
 
         model.eval()
-        for step, batch in enumerate(eval_dataloader):
+        for batch in eval_dataloader:
             # We could avoid this line since we set the accelerator with `device_placement=True`.
             batch.to(accelerator.device)
             with torch.no_grad():

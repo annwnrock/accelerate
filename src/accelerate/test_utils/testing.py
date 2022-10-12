@@ -252,10 +252,7 @@ def are_the_same_tensors(tensor):
     tensor = tensor[None].clone().to(state.device)
     tensors = gather(tensor).cpu()
     tensor = tensor[0].cpu()
-    for i in range(tensors.shape[0]):
-        if not torch.equal(tensors[i], tensor):
-            return False
-    return True
+    return all(torch.equal(tensors[i], tensor) for i in range(tensors.shape[0]))
 
 
 class _RunOutput:

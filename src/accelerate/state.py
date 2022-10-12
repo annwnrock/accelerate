@@ -41,8 +41,7 @@ def parse_flag_from_env(key, default=False):
 
 
 def parse_choice_from_env(key, default="no"):
-    value = os.environ.get(key, str(default))
-    return value
+    return os.environ.get(key, str(default))
 
 
 # Inspired by Alex Martelli's 'Borg'.
@@ -189,12 +188,15 @@ class AcceleratorState:
                 os.environ["LOCAL_RANK"] = str(local_rank)
                 if not os.environ.get("MASTER_PORT", None):
                     os.environ["MASTER_PORT"] = "29500"
-                if not os.environ.get("MASTER_ADDR", None):
-                    if local_size != size and backend != "mpi":
-                        raise ValueError(
-                            "Looks like distributed multinode run but MASTER_ADDR env not set, "
-                            "please try exporting rank 0's hostname as MASTER_ADDR"
-                        )
+                if (
+                    not os.environ.get("MASTER_ADDR", None)
+                    and local_size != size
+                    and backend != "mpi"
+                ):
+                    raise ValueError(
+                        "Looks like distributed multinode run but MASTER_ADDR env not set, "
+                        "please try exporting rank 0's hostname as MASTER_ADDR"
+                    )
                 if not torch.distributed.is_initialized():
                     torch.distributed.init_process_group(backend, rank=rank, world_size=size, **kwargs)
                     self.backend = backend
@@ -208,20 +210,7 @@ class AcceleratorState:
                 self.num_processes = 1
                 self.process_index = self.local_process_index = 0
                 if parse_flag_from_env("USE_MPS_DEVICE") and not cpu:
-                    if not torch.backends.mps.is_available():
-                        if not torch.backends.mps.is_built():
-                            raise AssertionError(
-                                "MPS not available because the current PyTorch install was not "
-                                "built with MPS enabled. Please install torch version >=1.12.0 on "
-                                "your Apple silicon Mac running macOS 12.3 or later with a native "
-                                "version (arm64) of Python"
-                            )
-                        else:
-                            raise AssertionError(
-                                "MPS not available because the current MacOS version is not 12.3+ "
-                                "and/or you do not have an MPS-enabled device on this machine."
-                            )
-                    else:
+                    if torch.backends.mps.is_available():
                         from .utils import is_torch_version
 
                         if not is_torch_version(">", "1.12.0"):
@@ -231,6 +220,18 @@ class AcceleratorState:
                                 "Please refer to https://github.com/pytorch/pytorch/issues/82707 for more details."
                             )
                         self.device = torch.device("mps")
+                    elif not torch.backends.mps.is_built():
+                        raise AssertionError(
+                            "MPS not available because the current PyTorch install was not "
+                            "built with MPS enabled. Please install torch version >=1.12.0 on "
+                            "your Apple silicon Mac running macOS 12.3 or later with a native "
+                            "version (arm64) of Python"
+                        )
+                    else:
+                        raise AssertionError(
+                            "MPS not available because the current MacOS version is not 12.3+ "
+                            "and/or you do not have an MPS-enabled device on this machine."
+                        )
                 elif cpu or not torch.cuda.is_available():
                     self.device = torch.device("cpu")
                 else:
@@ -241,13 +242,8 @@ class AcceleratorState:
     def __repr__(self):
         mixed_precision = self.mixed_precision
 
-        repr = (
-            f"Distributed environment: {self.distributed_type}{('  Backend: ' + self.backend) if self.backend else ''}\n"
-            f"Num processes: {self.num_processes}\n"
-            f"Process index: {self.process_index}\n"
-            f"Local process index: {self.local_process_index}\n"
-            f"Device: {self.device}\n"
-        )
+        repr = f"Distributed environment: {self.distributed_type}{f'  Backend: {self.backend}' if self.backend else ''}\nNum processes: {self.num_processes}\nProcess index: {self.process_index}\nLocal process index: {self.local_process_index}\nDevice: {self.device}\n"
+
         if self.distributed_type == DistributedType.DEEPSPEED:
             repr += f"ds_config: {self.deepspeed_plugin.deepspeed_config}\n"
         else:

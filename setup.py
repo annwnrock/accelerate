@@ -15,11 +15,31 @@
 from setuptools import setup
 from setuptools import find_packages
 
-extras = {}
-extras["quality"] = ["black ~= 22.0", "isort >= 5.5.4", "flake8 >= 3.8.3", "hf-doc-builder >= 0.3.0"]
-extras["docs"] = []
-extras["test_prod"] = ["pytest", "pytest-xdist", "pytest-subtests", "parameterized"]
-extras["test_dev"] = ["datasets", "evaluate", "transformers", "scipy", "sklearn", "deepspeed<0.7.0", "tqdm"]
+extras = {
+    "quality": [
+        "black ~= 22.0",
+        "isort >= 5.5.4",
+        "flake8 >= 3.8.3",
+        "hf-doc-builder >= 0.3.0",
+    ],
+    "docs": [],
+    "test_prod": [
+        "pytest",
+        "pytest-xdist",
+        "pytest-subtests",
+        "parameterized",
+    ],
+    "test_dev": [
+        "datasets",
+        "evaluate",
+        "transformers",
+        "scipy",
+        "sklearn",
+        "deepspeed<0.7.0",
+        "tqdm",
+    ],
+}
+
 extras["testing"] = extras["test_prod"] + extras["test_dev"]
 extras["rich"] = ["rich"]
 

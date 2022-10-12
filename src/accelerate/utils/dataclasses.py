@@ -164,9 +164,9 @@ class ComputeEnvironment(str, enum.Enum):
 class EnumWithContains(enum.EnumMeta):
     "A metaclass that adds the ability to check if `self` contains an item with the `in` operator"
 
-    def __contains__(cls, item):
+    def __contains__(self, item):
         try:
-            cls(item)
+            self(item)
         except ValueError:
             return False
         return True
@@ -348,23 +348,25 @@ class DeepSpeedPlugin:
             return
 
         if config.get(ds_key) == "auto":
-            if ds_key_long in kwargs:
-                config[ds_key] = kwargs[ds_key_long]
-                return
-            else:
+            if ds_key_long not in kwargs:
                 raise ValueError(
                     f"`{ds_key_long}` not found in kwargs. "
                     f"Please specify `{ds_key_long}` without `auto`(set to correct value) in the DeepSpeed config file or "
                     "pass it in kwargs."
                 )
 
+            config[ds_key] = kwargs[ds_key_long]
+            return
         if not must_match:
             return
 
         ds_val = config.get(ds_key)
-        if ds_val is not None and ds_key_long in kwargs:
-            if ds_val != kwargs[ds_key_long]:
-                mismatches.append(f"- ds {ds_key_long}={ds_val} vs arg {ds_key_long}={kwargs[ds_key_long]}")
+        if (
+            ds_val is not None
+            and ds_key_long in kwargs
+            and ds_val != kwargs[ds_key_long]
+        ):
+            mismatches.append(f"- ds {ds_key_long}={ds_val} vs arg {ds_key_long}={kwargs[ds_key_long]}")
 
     def deepspeed_config_process(self, prefix="", mismatches=None, config=None, must_match=True, **kwargs):
         """Process the DeepSpeed config with the values from the kwargs."""
@@ -520,7 +522,7 @@ class FullyShardedDataParallelPlugin:
         modules_children = list(module.children())
         if module.__class__.__name__ == name:
             return module.__class__
-        elif len(modules_children) == 0:
+        elif not modules_children:
             return
         else:
             for child_module in modules_children:

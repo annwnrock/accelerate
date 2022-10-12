@@ -171,11 +171,15 @@ class ModelingUtilsTester(unittest.TestCase):
 
     def test_compute_module_sizes(self):
         model = ModelForTest()
-        expected_sizes = {"": 236, "linear1": 64, "linear1.weight": 48, "linear1.bias": 16}
-        expected_sizes.update({"linear2": 100, "linear2.weight": 80, "linear2.bias": 20})
-        expected_sizes.update({"batchnorm": 72, "batchnorm.weight": 16, "batchnorm.bias": 16})
-        expected_sizes.update(
-            {"batchnorm.running_mean": 16, "batchnorm.running_var": 16, "batchnorm.num_batches_tracked": 8}
+        expected_sizes = (
+            {"": 236, "linear1": 64, "linear1.weight": 48, "linear1.bias": 16}
+            | {"linear2": 100, "linear2.weight": 80, "linear2.bias": 20}
+            | {"batchnorm": 72, "batchnorm.weight": 16, "batchnorm.bias": 16}
+            | {
+                "batchnorm.running_mean": 16,
+                "batchnorm.running_var": 16,
+                "batchnorm.num_batches_tracked": 8,
+            }
         )
 
         module_sizes = compute_module_sizes(model)
